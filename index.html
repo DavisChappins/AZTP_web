@@ -3,18 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Map with POIs</title>
+    <title>Map with POIs and Airspace</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         #map { height: 80vh; width: 70%; float: left; }
         #side-pane { height: 80vh; width: 30%; float: right; overflow-y: auto; padding: 20px; }
         #container { display: flex; }
+        #unit-selector { margin-bottom: 20px; }
+        .leaflet-top.leaflet-right {
+            top: 80px;
+        }
+        .airspace-control {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
 <body>
     <div id="container">
         <div id="map"></div>
         <div id="side-pane">
+            <div id="unit-selector">
+                <label for="units">Select Units:</label>
+                <select id="units">
+                    <option value="metric">Metric</option>
+                    <option value="imperial">Imperial</option>
+                </select>
+            </div>
             <h3>Waypoint Details</h3>
             <div id="poi-details"></div>
         </div>
