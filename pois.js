@@ -3,7 +3,7 @@ const iconSettings = {
     1: 'icons/map_town.svg',
     2: 'icons/alt_landable_airport.svg',
     3: 'icons/alt_landable_field.svg',
-    4: 'icons/alt_reachable_airport.svg',
+    4: 'icons/alt_gliding_airport.svg',
     5: 'icons/alt_reachable_airport.svg',
     6: 'icons/map_pass.svg',
     7: 'icons/map_mountain_top.svg',
