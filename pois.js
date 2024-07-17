@@ -71,8 +71,22 @@ function convertDMSToDD(dms) {
     return (direction === 'S' || direction === 'W') ? -dd : dd;
 }
 
+function metersToFeet(meters) {
+    const feet = Math.round(meters * 3.28084) + ' ft';
+    console.log(`Converting ${meters} meters to ${feet}`);
+    return feet;
+}
+
+function feetToMeters(feet) {
+    const meters = Math.round(feet / 3.28084) + ' m';
+    console.log(`Converting ${feet} feet to ${meters}`);
+    return meters;
+}
+
+
 document.addEventListener('DOMContentLoaded', function () {
-    const map = L.map('map').setView([20, 0], 2);
+    // Set the initial view to zoom level 5 and center at lat 38, lon -96
+    const map = L.map('map').setView([38, -96], 5);
 
     const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
@@ -86,6 +100,7 @@ document.addEventListener('DOMContentLoaded', function () {
     L.control.layers({ "Street Map": streets, "Satellite": satellite }).addTo(map);
 
     let markers = []; // Store marker references for updating on zoom change
+    let currentPoi = null; // Store the currently displayed POI details
 
     fetch('pois.json')
         .then(response => response.json())
@@ -104,6 +119,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const iconSize = ICON_SIZES[map.getZoom()] || ICON_SIZES[10]; // Default to size for zoom level 10 if undefined
             updateMarkerIcon(marker, poi, iconSize);
         });
+        handleAirspaceLabelsVisibility(map.getZoom());
+        adjustCircles();
     });
 
     function createMarker(poi, lat, lon) {
@@ -117,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function () {
             html: `
                 <div style="position: relative;">
                     <img src="${iconUrl}" style="width: 100%; height: 100%; transform: rotate(${parseFloat(poi.rwdir) - 45}deg); transform-origin: center;">
-					<div style="position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: 200px; white-space: nowrap; text-align: center; font-size: ${textSize}; visibility: ${textVisible}; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">
+                    <div style="position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: 200px; white-space: nowrap; text-align: center; font-size: ${textSize}; visibility: ${textVisible}; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">
                         ${poi.name}
                     </div>
                 </div>
@@ -132,8 +149,9 @@ document.addEventListener('DOMContentLoaded', function () {
         markers.push({ marker, poi });
 
         marker.on('click', () => {
-            const detailsHtml = generateDetailsHtml(poi);
-            document.getElementById('poi-details').innerHTML = detailsHtml;
+            console.log('Marker clicked:', poi.name);
+            currentPoi = poi; // Store the current POI details
+            updatePoiDetails(poi);
         });
     }
 
@@ -147,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function () {
             html: `
                 <div style="position: relative;">
                     <img src="${iconUrl}" style="width: 100%; height: 100%; transform: rotate(${parseFloat(poi.rwdir) - 45}deg); transform-origin: center;">
-					<div style="position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: 200px; white-space: nowrap; text-align: center; font-size: ${textSize}; visibility: ${textVisible}; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">
+                    <div style="position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: 200px; white-space: nowrap; text-align: center; font-size: ${textSize}; visibility: ${textVisible}; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">
                         ${poi.name}
                     </div>
                 </div>
@@ -161,22 +179,299 @@ document.addEventListener('DOMContentLoaded', function () {
         marker.setIcon(customIcon);
     }
 
-    function generateDetailsHtml(poi) {
-        return `
+    function updatePoiDetails(poi) {
+        const unit = document.getElementById('units').value;
+        console.log('Current unit:', unit);
+
+        let elev = poi.elev;
+        let rwlen = poi.rwlen;
+        let rwwidth = poi.rwwidth;
+
+        if (unit === 'imperial') {
+            if (elev.endsWith('m')) {
+                elev = metersToFeet(parseFloat(elev));
+            }
+            if (rwlen.endsWith('m')) {
+                rwlen = metersToFeet(parseFloat(rwlen));
+            }
+            if (rwwidth.endsWith('m')) {
+                rwwidth = metersToFeet(parseFloat(rwwidth));
+            }
+        } else {
+            if (elev.endsWith('ft')) {
+                elev = feetToMeters(parseFloat(elev));
+            }
+            if (rwlen.endsWith('ft')) {
+                rwlen = feetToMeters(parseFloat(rwlen));
+            }
+            if (rwwidth.endsWith('ft')) {
+                rwwidth = feetToMeters(parseFloat(rwwidth));
+            }
+        }
+
+        console.log(`Displaying details for ${poi.name}:`, { elev, rwlen, rwwidth });
+
+        document.getElementById('poi-details').innerHTML = `
             <div class="poi-details">
                 <p><strong>Name:</strong> ${poi.name}</p>
                 <p><strong>Code:</strong> ${poi.code}</p>
                 <p><strong>Country:</strong> ${poi.country}</p>
                 <p><strong>Latitude:</strong> ${poi.lat}</p>
                 <p><strong>Longitude:</strong> ${poi.lon}</p>
-                <p><strong>Elevation:</strong> ${poi.elev}</p>
+                <p><strong>Elevation:</strong> ${elev}</p>
                 <p><strong>Style:</strong> ${poi.style}</p>
                 <p><strong>Runway Direction:</strong> ${poi.rwdir}°</p>
-                <p><strong>Runway Length:</strong> ${poi.rwlen}</p>
-                <p><strong>Runway Width:</strong> ${poi.rwwidth}</p>
+                <p><strong>Runway Length:</strong> ${rwlen}</p>
+                <p><strong>Runway Width:</strong> ${rwwidth}</p>
                 <p><strong>Frequency:</strong> ${poi.freq || 'N/A'}</p>
                 <p><strong>Description:</strong> ${poi.desc}</p>
             </div>
         `;
+    }
+
+    document.getElementById('units').addEventListener('change', function() {
+        console.log('Unit changed:', document.getElementById('units').value);
+        if (currentPoi) {
+            updatePoiDetails(currentPoi);
+        }
+    });
+
+    const airspaceLayers = {
+        classB: L.layerGroup(),
+        classC: L.layerGroup(),
+        classD: L.layerGroup(),
+        classQ: L.layerGroup(),
+        classR: L.layerGroup()
+    };
+
+    let airspaceLabels = [];
+    let measurementCircles = {
+        '15m': null,
+        '18m': null
+    };
+
+	function loadGeoJsonData() {
+		// Load airspace GeoJSON data
+		fetch('files/airspaces.geojson')
+			.then(response => {
+				if (!response.ok) {
+					throw new Error('Network response was not ok ' + response.statusText);
+				}
+				console.log('Airspace response:', response);
+				return response.json();
+			})
+			.then(data => {
+				console.log('Airspace data:', data);
+				L.geoJSON(data, {
+					style: feature => {
+						switch (feature.properties.CLASS) {
+							case 'B': return { color: '#2979B8', weight: 2, fillOpacity: 0.1 };
+							case 'C': return { color: '#903B62', weight: 2, fillOpacity: 0.1 };
+							case 'D': return { color: '#1D4473', weight: 2, dashArray: '5, 5', fillOpacity: 0.1 };
+							case 'Q': return { color: '#903B62', weight: 2, dashArray: '10, 10', fillOpacity: 0.1 };
+							case 'R': return { color: '#2979B8', weight: 2, dashArray: '10, 10', fillOpacity: 0.1 };
+							default: return { color: '#2979B8', weight: 1, fillOpacity: 0.1 };
+						}
+					},
+					onEachFeature: (feature, layer) => {
+						if (feature.properties && feature.properties.NAME) {
+							layer.bindPopup(`<strong>${feature.properties.NAME}</strong><br>Type: ${feature.properties.CLASS}`);
+						}
+						if (feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon") {
+							const bounds = layer.getBounds();
+							const center = bounds.getCenter();
+
+							switch (feature.properties.CLASS) {
+								case 'B':
+									airspaceLayers.classB.addLayer(layer);
+									break;
+								case 'C':
+									airspaceLayers.classC.addLayer(layer);
+									break;
+								case 'D':
+									airspaceLayers.classD.addLayer(layer);
+									break;
+								case 'Q':
+									airspaceLayers.classQ.addLayer(layer);
+									break;
+								case 'R':
+									airspaceLayers.classR.addLayer(layer);
+									break;
+								default:
+									break;
+							}
+						}
+					}
+				});
+			})
+			.catch(error => console.error('Error loading airspace data:', error));
+
+        // Load labels GeoJSON data
+        fetch('files/labels.geojson')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                console.log('Labels response:', response);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Labels data:', data);
+                L.geoJSON(data, {
+                    pointToLayer: (feature, latlng) => {
+                        return L.marker(latlng, {
+                            icon: L.divIcon({
+                                className: 'label-icon',
+                                html: `<div style="background: white; padding: 2px; border: 1px solid black;">${feature.properties.name}</div>`
+                            })
+                        });
+                    }
+                }).addTo(map);
+            })
+            .catch(error => console.error('Error loading labels data:', error));
+    }
+
+    loadGeoJsonData();
+
+    // Airspace control with checkboxes
+    const airspaceControl = L.control({ position: 'topright' });
+
+    airspaceControl.onAdd = function(map) {
+        const div = L.DomUtil.create('div', 'airspace-control');
+        div.innerHTML = `
+            <div style="background: white; padding: 10px;">
+                <h4>Airspaces</h4>
+                <label><input type="checkbox" id="classB"> Class B</label><br>
+                <label><input type="checkbox" id="classC"> Class C</label><br>
+                <label><input type="checkbox" id="classD"> Class D</label><br>
+                <label><input type="checkbox" id="classQ"> DZ/MOA</label><br>
+                <label><input type="checkbox" id="classR"> Restricted</label>
+            </div>
+        `;
+        return div;
+    };
+
+    airspaceControl.addTo(map);
+
+    document.getElementById('classB').addEventListener('change', function() {
+        if (this.checked) {
+            map.addLayer(airspaceLayers.classB);
+        } else {
+            map.removeLayer(airspaceLayers.classB);
+        }
+    });
+
+    document.getElementById('classC').addEventListener('change', function() {
+        if (this.checked) {
+            map.addLayer(airspaceLayers.classC);
+        } else {
+            map.removeLayer(airspaceLayers.classC);
+        }
+    });
+
+    document.getElementById('classD').addEventListener('change', function() {
+        if (this.checked) {
+            map.addLayer(airspaceLayers.classD);
+        } else {
+            map.removeLayer(airspaceLayers.classD);
+        }
+    });
+
+    document.getElementById('classQ').addEventListener('change', function() {
+        if (this.checked) {
+            map.addLayer(airspaceLayers.classQ);
+        } else {
+            map.removeLayer(airspaceLayers.classQ);
+        }
+    });
+
+    document.getElementById('classR').addEventListener('change', function() {
+        if (this.checked) {
+            map.addLayer(airspaceLayers.classR);
+        } else {
+            map.removeLayer(airspaceLayers.classR);
+        }
+    });
+
+    function handleAirspaceLabelsVisibility(zoomLevel) {
+        if (zoomLevel < 9) {
+            airspaceLabels.forEach(label => map.removeLayer(label));
+        } else {
+            airspaceLabels.forEach(label => map.addLayer(label));
+        }
+    }
+
+    // Measurement control with checkboxes
+    const measurementControl = L.control({ position: 'topright' });
+
+    measurementControl.onAdd = function(map) {
+        const div = L.DomUtil.create('div', 'measurement-control');
+        div.innerHTML = `
+            <div style="background: white; padding: 10px;">
+                <h4>Measurement</h4>
+                <label><input type="checkbox" id="circle15m"> 15m</label><br>
+                <label><input type="checkbox" id="circle18m"> 18m</label>
+            </div>
+        `;
+        return div;
+    };
+
+    measurementControl.addTo(map);
+
+    document.getElementById('circle15m').addEventListener('change', function() {
+        if (this.checked) {
+            drawCircle('15m', 7.5);
+        } else {
+            removeCircle('15m');
+        }
+    });
+
+    document.getElementById('circle18m').addEventListener('change', function() {
+        if (this.checked) {
+            drawCircle('18m', 9);
+        } else {
+            removeCircle('18m');
+        }
+    });
+
+    function drawCircle(id, radius) {
+        const center = map.getCenter();
+        const circle = L.circle(center, {
+            radius: radius,
+            color: 'white',
+            weight: 3,
+            opacity: 0.7
+        }).addTo(map);
+        const label = L.marker(center, {
+            icon: L.divIcon({
+                className: 'circle-label',
+                html: `<div style="font-size: 12px; color: white; text-align: center;">${id}</div>`,
+                iconSize: [30, 15]
+            })
+        }).addTo(map);
+        measurementCircles[id] = { circle, label };
+    }
+
+    function removeCircle(id) {
+        if (measurementCircles[id]) {
+            map.removeLayer(measurementCircles[id].circle);
+            map.removeLayer(measurementCircles[id].label);
+            measurementCircles[id] = null;
+        }
+    }
+
+    map.on('moveend', function() {
+        adjustCircles();
+    });
+
+    function adjustCircles() {
+        Object.keys(measurementCircles).forEach(id => {
+            const measurement = measurementCircles[id];
+            if (measurement) {
+                const center = map.getCenter();
+                measurement.circle.setLatLng(center);
+                measurement.label.setLatLng(center);
+            }
+        });
     }
 });
