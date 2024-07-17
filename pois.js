@@ -3,7 +3,7 @@ const iconSettings = {
     1: 'icons/map_town.svg',
     2: 'icons/alt_landable_airport.svg',
     3: 'icons/alt_landable_field.svg',
-    4: 'icons/alt_landable_airport.svg',
+    4: 'icons/alt_reachable_airport.svg',
     5: 'icons/alt_reachable_airport.svg',
     6: 'icons/map_pass.svg',
     7: 'icons/map_mountain_top.svg',
@@ -18,6 +18,32 @@ const iconSettings = {
     16: 'icons/map_castle.svg',
     17: 'icons/map_intersection.svg'
 };
+
+// Add the mapping as a constant
+const styleMapping = {
+    0: "Unknown",
+    1: "Waypoint",
+    2: "Airfield with a grass/dirt runway",
+    3: "Outlanding/field",
+    4: "Gliding airfield",
+    5: "Airfield with a paved runway",
+    6: "Mountain Pass",
+    7: "Mountain Top",
+    8: "Transmitter Mast",
+    9: "VOR",
+    10: "NDB",
+    11: "Cooling Tower",
+    12: "Dam",
+    13: "Tunnel",
+    14: "Bridge",
+    15: "Power Plant",
+    16: "Castle",
+    17: "Intersection"
+};
+
+
+
+
 
 const ICON_SIZES = {
     0: [6, 6],   // Icon size at zoom level 0
@@ -50,7 +76,7 @@ const TEXT_SIZES = {
     5: { size: '4px', visible: false },
     6: { size: '4px', visible: false },
     7: { size: '8px', visible: false },
-    8: { size: '8px', visible: true },
+    8: { size: '8px', visible: false },
     9: { size: '10px', visible: true },
     10: { size: '10px', visible: true },
     11: { size: '10px', visible: true },
@@ -99,6 +125,11 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return distance;
 }
 
+
+
+
+
+
 document.addEventListener('DOMContentLoaded', function () {
     // Set the initial view to zoom level 5 and center at lat 38, lon -96
     const map = L.map('map').setView([38, -96], 5);
@@ -116,18 +147,98 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let markers = []; // Store marker references for updating on zoom change
     let currentPoi = null; // Store the currently displayed POI details
+	let LoadedContests = new Set();
 
     fetch('pois.json')
         .then(response => response.json())
         .then(data => {
             data.forEach(poi => {
+                const contests = poi.webdata.dataset.contest;
+                if (contests) {
+                    contests.forEach(contest => LoadedContests.add(contest));
+                }
                 const lat = convertDMSToDD(poi.lat);
                 const lon = convertDMSToDD(poi.lon);
                 createMarker(poi, lat, lon);
             });
+            populateContestDropdown();
             updateVisibleWaypointsCount();
         })
         .catch(error => console.error('Error loading POI data:', error));
+
+    function populateContestDropdown() {
+        const contestDropdown = document.getElementById('filter-contest');
+        LoadedContests.forEach(contest => {
+            const option = document.createElement('option');
+            option.value = contest;
+            option.textContent = contest;
+            contestDropdown.appendChild(option);
+        });
+        // Debug output
+        console.log('LoadedContests:', Array.from(LoadedContests));
+    }
+	
+    document.getElementById('download-waypoints-btn').addEventListener('click', function() {
+        const visibleWaypoints = markers
+            .filter(({ marker }) => marker.options.opacity === 1)
+            .map(({ poi }) => poi);
+        
+        const cupFileContent = convertJsonToCup(visibleWaypoints);
+        const currentDate = new Date().toISOString().slice(0, 10);
+        const fileName = `USTP_${currentDate}.cup`;
+        
+        const blob = new Blob([cupFileContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+    });
+
+    function convertJsonToCup(jsonData) {
+        const cupHeaders = [
+            "name", "code", "country", "lat", "lon", "elev", "style", 
+            "rwdir", "rwlen", "rwwidth", "freq", "desc", "userdata", "pics"
+        ];
+
+        const csvRows = [];
+        csvRows.push(cupHeaders.join(','));
+
+        jsonData.forEach(entry => {
+            const cupRow = cupHeaders.map(header => `"${entry[header] || ''}"`);
+            csvRows.push(cupRow.join(','));
+        });
+
+        return csvRows.join('\n');
+    }
+
+    document.getElementById('contest-filter-btn').addEventListener('click', function() {
+        const selectedContest = document.getElementById('filter-contest').value;
+        console.log('Selected Contest:', selectedContest);
+
+        fetch('pois.json')
+            .then(response => response.json())
+            .then(data => {
+                markers.forEach(({ marker, poi }) => {
+                    const contests = poi.webdata.dataset.contest;
+                    if (contests && contests.includes(selectedContest)) {
+                        marker.setOpacity(1); // Show the marker
+                        marker.getElement().querySelector('div').style.visibility = 'visible'; // Show the label
+                        console.log(`Showing ${poi.name}`);
+                    } else {
+                        marker.setOpacity(0); // Hide the marker
+                        marker.getElement().querySelector('div').style.visibility = 'hidden'; // Hide the label
+                        console.log(`Hiding ${poi.name}`);
+                    }
+                });
+
+                updateVisibleWaypointsCount();
+            })
+            .catch(error => console.error('Error loading POI data:', error));
+    });
 
     map.on('zoomend', function() {
         console.log(`Zoom level changed: ${map.getZoom()}`);
@@ -299,30 +410,42 @@ document.addEventListener('DOMContentLoaded', function () {
 
         console.log(`Displaying details for ${poi.name}:`, { elev, rwlen, rwwidth });
 
-        document.getElementById('poi-details').innerHTML = `
-            <div class="poi-details">
-                <p><strong>Name:</strong> ${poi.name}</p>
-                <p><strong>Code:</strong> ${poi.code}</p>
-                <p><strong>Country:</strong> ${poi.country}</p>
-                <p><strong>Latitude:</strong> ${poi.lat}</p>
-                <p><strong>Longitude:</strong> ${poi.lon}</p>
-                <p><strong>Elevation:</strong> ${elev}</p>
-                <p><strong>Style:</strong> ${poi.style}</p>
-                <p><strong>Runway Direction:</strong> ${poi.rwdir}°</p>
-                <p><strong>Runway Length:</strong> ${rwlen}</p>
-                <p><strong>Runway Width:</strong> ${rwwidth}</p>
-                <p><strong>Frequency:</strong> ${poi.freq || 'N/A'}</p>
-                <p><strong>Description:</strong> ${poi.desc}</p>
-            </div>
-        `;
+        document.getElementById('poi-name').textContent = poi.name;
+        document.getElementById('poi-code').textContent = poi.code;
+        document.getElementById('poi-country').textContent = poi.country;
+        document.getElementById('poi-lat').textContent = poi.lat;
+        document.getElementById('poi-lon').textContent = poi.lon;
+        document.getElementById('poi-elev').textContent = elev;
+
+        // Use the mapping to display the style
+        const styleValue = poi.style;
+        const styleDescription = styleMapping[styleValue] || "Unknown";
+        document.getElementById('poi-style').textContent = `${styleValue} - ${styleDescription}`;
+
+        document.getElementById('poi-rwdir').textContent = poi.rwdir + '°';
+        document.getElementById('poi-rwlen').textContent = rwlen;
+        document.getElementById('poi-rwwidth').textContent = rwwidth;
+        document.getElementById('poi-freq').textContent = poi.freq || 'N/A';
+        document.getElementById('poi-desc').textContent = poi.desc;
+
+        // Populate Website Data
+        document.getElementById('last-update').textContent = poi.webdata.lastupdate;
+        document.getElementById('last-survey').textContent = poi.webdata.lastsurvey;
+        document.getElementById('last-survey-format').textContent = poi.webdata.lastsurveyformat;
+
+        // Populate Contest Dataset
+        const contests = poi.webdata.dataset.contest;
+        console.log('Contests:', contests);
+        document.getElementById('contests').textContent = contests ? contests.toString() : 'N/A';
     }
 
-    document.getElementById('units').addEventListener('change', function() {
-        console.log('Unit changed:', document.getElementById('units').value);
-        if (currentPoi) {
-            updatePoiDetails(currentPoi);
-        }
-    });
+	// Add event listener for unit change to update the details if needed
+	document.getElementById('units').addEventListener('change', function() {
+		console.log('Unit changed:', document.getElementById('units').value);
+		if (currentPoi) {
+			updatePoiDetails(currentPoi);
+		}
+	});
 	
 	
  

@@ -13,25 +13,34 @@
         .leaflet-top.leaflet-right {
             top: 80px;
         }
-        .airspace-control {
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
-        }
+		.airspace-control {
+			background: white;
+			padding: 1px; /* Reduced padding */
+			margin: 1px;  /* Added margin */
+			border-radius: 5px;
+			box-shadow: 0 0 1px rgba(1,0,0,0.2); /* Reduced shadow size */
+			width: 100px; /* Adjust width to make it smaller */
+		}
         #header-bar {
-            height: 40px;
             width: 100%;
             background-color: #f1f1f1;
-            display: flex;
-            align-items: center;
             padding: 10px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        #header-bar div {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
         }
         #header-bar label {
             margin: 0 10px;
         }
         #header-bar input {
+            margin: 0 10px;
+        }
+        #header-bar select {
             margin: 0 10px;
         }
         #header-bar button {
@@ -44,15 +53,24 @@
 </head>
 <body>
     <div id="header-bar">
-        <label for="filter-center">Filter by Distance Center:</label>
-        <input type="text" id="filter-center" placeholder="Enter POI Name" readonly>
-        
-        <label for="filter-radius">Filter by Distance Radius (mi):</label>
-        <input type="number" id="filter-radius" placeholder="Enter Radius in Miles">
-        
-        <button id="filter-btn">Filter</button>
-        <button id="show-all-btn">Show All</button>
-        <span id="visible-waypoints">Number of visible waypoints: 0</span>
+        <div>
+            <label for="filter-center">Filter by Distance - Center:</label>
+            <input type="text" id="filter-center" placeholder="Enter POI Name" readonly>
+            
+            <label for="filter-radius">Filter by Distance - Radius (mi):</label>
+            <input type="number" id="filter-radius" placeholder="Enter Radius in Miles">
+            
+            <button id="filter-btn">Filter by Distance</button>
+            <button id="show-all-btn">Remove All Filters</button>
+            <span id="visible-waypoints">Number of visible waypoints: 0</span>
+			<button id="download-waypoints-btn">Download Visible Waypoints</button>
+
+        </div>
+        <div>
+            <label for="filter-contest">Filter by Contest:</label>
+            <select id="filter-contest"></select>
+            <button id="contest-filter-btn">Filter by Contest</button>
+        </div>
     </div>
     <div id="container">
         <div id="map"></div>
@@ -64,8 +82,31 @@
                     <option value="imperial">Imperial</option>
                 </select>
             </div>
-            <h3>Waypoint Details</h3>
-            <div id="poi-details"></div>
+            <h2>Waypoint Details</h2>
+            <div id="poi-details">
+                <p><strong>Name:</strong> <span id="poi-name"></span></p>
+                <p><strong>Code:</strong> <span id="poi-code"></span></p>
+                <p><strong>Country:</strong> <span id="poi-country"></span></p>
+                <p><strong>Latitude:</strong> <span id="poi-lat"></span></p>
+                <p><strong>Longitude:</strong> <span id="poi-lon"></span></p>
+                <p><strong>Elevation:</strong> <span id="poi-elev"></span></p>
+                <p><strong>Style:</strong> <span id="poi-style"></span></p>
+                <p><strong>Runway Direction:</strong> <span id="poi-rwdir"></span></p>
+                <p><strong>Runway Length:</strong> <span id="poi-rwlen"></span></p>
+                <p><strong>Runway Width:</strong> <span id="poi-rwwidth"></span></p>
+                <p><strong>Frequency:</strong> <span id="poi-freq"></span></p>
+                <p><strong>Description:</strong> <span id="poi-desc"></span></p>
+            </div>
+            <h2>Website Data</h2>
+            <div id="website-data">
+                <p><strong>Waypoint Last Update:</strong> <span id="last-update"></span></p>
+                <p><strong>Waypoint Last Survey:</strong> <span id="last-survey"></span></p>
+                <p><strong>Waypoint Last Survey Type:</strong> <span id="last-survey-format"></span></p>
+            </div>
+            <h2>Contest Dataset</h2>
+            <div id="contest-dataset">
+                <p><strong>Contests:</strong> <span id="contests"></span></p>
+            </div>
         </div>
     </div>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
