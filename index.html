@@ -19,9 +19,41 @@
             border-radius: 5px;
             box-shadow: 0 0 15px rgba(0,0,0,0.2);
         }
+        #header-bar {
+            height: 40px;
+            width: 100%;
+            background-color: #f1f1f1;
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #header-bar label {
+            margin: 0 10px;
+        }
+        #header-bar input {
+            margin: 0 10px;
+        }
+        #header-bar button {
+            margin: 0 10px;
+        }
+        #header-bar span {
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
+    <div id="header-bar">
+        <label for="filter-center">Filter by Distance Center:</label>
+        <input type="text" id="filter-center" placeholder="Enter POI Name" readonly>
+        
+        <label for="filter-radius">Filter by Distance Radius (mi):</label>
+        <input type="number" id="filter-radius" placeholder="Enter Radius in Miles">
+        
+        <button id="filter-btn">Filter</button>
+        <button id="show-all-btn">Show All</button>
+        <span id="visible-waypoints">Number of visible waypoints: 0</span>
+    </div>
     <div id="container">
         <div id="map"></div>
         <div id="side-pane">
