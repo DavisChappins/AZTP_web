@@ -83,6 +83,21 @@ function feetToMeters(feet) {
     return meters;
 }
 
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    function toRadians(degrees) {
+        return degrees * Math.PI / 180;
+    }
+
+    const R = 3958.8; // Radius of the Earth in miles
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return distance;
+}
 
 document.addEventListener('DOMContentLoaded', function () {
     // Set the initial view to zoom level 5 and center at lat 38, lon -96
@@ -110,6 +125,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const lon = convertDMSToDD(poi.lon);
                 createMarker(poi, lat, lon);
             });
+            updateVisibleWaypointsCount();
         })
         .catch(error => console.error('Error loading POI data:', error));
 
@@ -121,6 +137,76 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         handleAirspaceLabelsVisibility(map.getZoom());
         adjustCircles();
+    });
+
+    const visibleWaypointsSpan = document.getElementById('visible-waypoints');
+
+    function updateVisibleWaypointsCount() {
+        const visibleMarkers = markers.filter(({ marker }) => marker.options.opacity === 1);
+        visibleWaypointsSpan.textContent = `Number of visible waypoints: ${visibleMarkers.length}`;
+    }
+
+
+
+    document.getElementById('filter-btn').addEventListener('click', function() {
+        const centerName = document.getElementById('filter-center').value;
+        const radius = parseFloat(document.getElementById('filter-radius').value);
+        console.log('Filter button clicked');
+        console.log('Center Name:', centerName);
+        console.log('Radius:', radius);
+
+        fetch('pois.json')
+            .then(response => response.json())
+            .then(data => {
+                const centerPoi = data.find(poi => poi.name === centerName);
+                if (!centerPoi) {
+                    alert('POI not found');
+                    console.log('POI not found:', centerName);
+                    return;
+                }
+
+                const centerLat = convertDMSToDD(centerPoi.lat);
+                const centerLon = convertDMSToDD(centerPoi.lon);
+                console.log('Center POI:', centerPoi);
+                console.log('Center Coordinates:', centerLat, centerLon);
+
+                markers.forEach(({ marker, poi }) => {
+                    const lat = convertDMSToDD(poi.lat);
+                    const lon = convertDMSToDD(poi.lon);
+                    const distance = calculateDistance(centerLat, centerLon, lat, lon);
+                    console.log(`Distance from ${centerName} to ${poi.name}: ${distance} miles`);
+
+                    if (distance > radius) {
+                        marker.setOpacity(0); // Hide the marker
+                        marker.getElement().querySelector('div').style.visibility = 'hidden'; // Hide the label
+                        console.log(`Hiding ${poi.name}`);
+                    } else {
+                        marker.setOpacity(1); // Show the marker
+                        marker.getElement().querySelector('div').style.visibility = 'visible'; // Show the label
+                        console.log(`Showing ${poi.name}`);
+                    }
+                });
+
+                updateVisibleWaypointsCount();
+            })
+            .catch(error => console.error('Error loading POI data:', error));
+    });
+
+    document.getElementById('show-all-btn').addEventListener('click', function() {
+        console.log('Show All button clicked');
+        markers.forEach(({ marker, poi }) => {
+            marker.setOpacity(1); // Show the marker
+            marker.getElement().querySelector('div').style.visibility = 'visible'; // Show the label
+            console.log(`Showing ${poi.name}`);
+        });
+        updateVisibleWaypointsCount();
+    });
+
+    document.getElementById('filter-radius').addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault(); // Prevent form submission if inside a form
+            document.getElementById('filter-btn').click();
+        }
     });
 
     function createMarker(poi, lat, lon) {
@@ -152,6 +238,8 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log('Marker clicked:', poi.name);
             currentPoi = poi; // Store the current POI details
             updatePoiDetails(poi);
+            document.getElementById('filter-center').value = poi.name; // Populate the filter center field
+            console.log('Filter Center populated:', poi.name);
         });
     }
 
@@ -235,6 +323,11 @@ document.addEventListener('DOMContentLoaded', function () {
             updatePoiDetails(currentPoi);
         }
     });
+	
+	
+ 
+
+
 
     const airspaceLayers = {
         classB: L.layerGroup(),
