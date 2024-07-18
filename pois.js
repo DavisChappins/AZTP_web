@@ -240,15 +240,21 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(error => console.error('Error loading POI data:', error));
     });
 
-    map.on('zoomend', function() {
-        console.log(`Zoom level changed: ${map.getZoom()}`);
-        markers.forEach(({ marker, poi }) => {
-            const iconSize = ICON_SIZES[map.getZoom()] || ICON_SIZES[10]; // Default to size for zoom level 10 if undefined
-            updateMarkerIcon(marker, poi, iconSize);
-        });
-        handleAirspaceLabelsVisibility(map.getZoom());
-        adjustCircles();
-    });
+
+	function updateAllMarkers() {
+		markers.forEach(({ marker, poi }) => {
+			const iconSize = ICON_SIZES[map.getZoom()] || ICON_SIZES[10]; // Default to size for zoom level 10 if undefined
+			updateMarkerIcon(marker, poi, iconSize);
+		});
+	}
+
+
+	map.on('zoomend', function() {
+		console.log(`Zoom level changed: ${map.getZoom()}`);
+		updateAllMarkers();
+		handleAirspaceLabelsVisibility(map.getZoom());
+		adjustCircles();
+	});
 
     const visibleWaypointsSpan = document.getElementById('visible-waypoints');
 
@@ -319,61 +325,69 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('filter-btn').click();
         }
     });
+	
+	let selectedPoi = null; // Track the currently selected POI
 
-    function createMarker(poi, lat, lon) {
-        const zoomLevel = map.getZoom();
-        const iconSize = ICON_SIZES[zoomLevel] || ICON_SIZES[10];
-        const iconUrl = iconSettings[poi.style] || 'icons/default_icon.svg';
-        const textSize = TEXT_SIZES[zoomLevel].size;
-        const textVisible = TEXT_SIZES[zoomLevel].visible ? 'visible' : 'hidden';
 
-        const customIcon = L.divIcon({
-            html: `
-                <div style="position: relative;">
-                    <img src="${iconUrl}" style="width: 100%; height: 100%; transform: rotate(${parseFloat(poi.rwdir) - 45}deg); transform-origin: center;">
-                    <div style="position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: 200px; white-space: nowrap; text-align: center; font-size: ${textSize}; visibility: ${textVisible}; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">
-                        ${poi.name}
-                    </div>
-                </div>
-            `,
-            className: '',
-            iconSize: iconSize,
-            iconAnchor: [iconSize[0] / 2, iconSize[1] / 2],
-            popupAnchor: [0, -iconSize[1] / 2]
-        });
+	function createMarker(poi, lat, lon) {
+		const zoomLevel = map.getZoom();
+		const iconSize = ICON_SIZES[zoomLevel] || ICON_SIZES[10];
+		const iconUrl = iconSettings[poi.style] || 'icons/default_icon.svg';
+		const textSize = TEXT_SIZES[zoomLevel].size;
+		const textVisible = TEXT_SIZES[zoomLevel].visible ? 'visible' : 'hidden';
 
-        const marker = L.marker([lat, lon], { icon: customIcon }).addTo(map);
-        markers.push({ marker, poi });
+		const borderStyle = (selectedPoi && selectedPoi.name === poi.name) ? '2px solid red' : 'none';
 
-        marker.on('click', () => {
-            console.log('Marker clicked:', poi.name);
-            currentPoi = poi; // Store the current POI details
-            updatePoiDetails(poi);
-            document.getElementById('filter-center').value = poi.name; // Populate the filter center field
-            console.log('Filter Center populated:', poi.name);
-        });
+		const customIcon = L.divIcon({
+			html: `
+				<div style="position: relative;">
+					<img src="${iconUrl}" style="width: 100%; height: 100%; transform: rotate(${parseFloat(poi.rwdir) - 45}deg); transform-origin: center;">
+					<div style="position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); border-radius: 5px; padding: 2px 5px; white-space: nowrap; text-align: center; font-size: ${textSize}; visibility: ${textVisible}; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; border: ${borderStyle}; border-radius: 5px;">
+						${poi.name}
+					</div>
+				</div>
+			`,
+			className: '',
+			iconSize: iconSize,
+			iconAnchor: [iconSize[0] / 2, iconSize[1] / 2],
+			popupAnchor: [0, -iconSize[1] / 2]
+		});
+
+		const marker = L.marker([lat, lon], { icon: customIcon }).addTo(map);
+		markers.push({ marker, poi });
+
+		marker.on('click', () => {
+			console.log('Marker clicked:', poi.name);
+			selectedPoi = poi; // Update the selected POI
+			updateAllMarkers(); // Update all markers to reflect the selection
+			updatePoiDetails(poi);
+			document.getElementById('filter-center').value = poi.name; // Populate the filter center field
+			console.log('Filter Center populated:', poi.name);
+		});
     }
 
-    function updateMarkerIcon(marker, poi, iconSize) {
-        const zoomLevel = map.getZoom();
-        const iconUrl = iconSettings[poi.style] || 'icons/default_icon.svg';
-        const textSize = TEXT_SIZES[zoomLevel].size;
-        const textVisible = TEXT_SIZES[zoomLevel].visible ? 'visible' : 'hidden';
+	function updateMarkerIcon(marker, poi, iconSize) {
+		const zoomLevel = map.getZoom();
+		const iconUrl = iconSettings[poi.style] || 'icons/default_icon.svg';
+		const textSize = TEXT_SIZES[zoomLevel].size;
+		const textVisible = TEXT_SIZES[zoomLevel].visible ? 'visible' : 'hidden';
 
-        const customIcon = L.divIcon({
-            html: `
-                <div style="position: relative;">
-                    <img src="${iconUrl}" style="width: 100%; height: 100%; transform: rotate(${parseFloat(poi.rwdir) - 45}deg); transform-origin: center;">
-                    <div style="position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: 200px; white-space: nowrap; text-align: center; font-size: ${textSize}; visibility: ${textVisible}; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">
-                        ${poi.name}
-                    </div>
-                </div>
-            `,
-            className: '',
-            iconSize: iconSize,
-            iconAnchor: [iconSize[0] / 2, iconSize[1] / 2],
-            popupAnchor: [0, -iconSize[1] / 2]
-        });
+		const borderStyle = (selectedPoi && selectedPoi.name === poi.name) ? '2px solid red' : 'none';
+
+		const customIcon = L.divIcon({
+			html: `
+				<div style="position: relative;">
+					<img src="${iconUrl}" style="width: 100%; height: 100%; transform: rotate(${parseFloat(poi.rwdir) - 45}deg); transform-origin: center;">
+					<div style="position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); border-radius: 5px; padding: 2px 5px; white-space: nowrap; text-align: center; font-size: ${textSize}; visibility: ${textVisible}; color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; border: ${borderStyle}; border-radius: 5px;">
+						${poi.name}
+					</div>
+				</div>
+			`,
+			className: '',
+			iconSize: iconSize,
+			iconAnchor: [iconSize[0] / 2, iconSize[1] / 2],
+			popupAnchor: [0, -iconSize[1] / 2]
+		});
 
         marker.setIcon(customIcon);
     }
